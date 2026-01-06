@@ -25,7 +25,9 @@ namespace httpclient {
 
   class HTTPRequest {
   public:
-    HTTPRequest(Method method, std::string uri) : method_(method), uri_(std::move(uri)) { }
+    explicit HTTPRequest(Method method, std::string uri) noexcept : method_(method), uri_(std::move(uri)) { }
+    explicit HTTPRequest(Method method, std::string_view uri) noexcept : method_(method), uri_(uri) { }
+    explicit HTTPRequest(Method method, const char * uri) noexcept : method_(method), uri_(uri) { }
   
     const Method getMethod() const { return method_; }
     const std::string & getURI() const { return uri_; }
@@ -48,8 +50,8 @@ namespace httpclient {
     void setUseHTTP2(bool t) { use_http2_ = t; }
 
     void setHeaders(std::map<std::string, std::string> headers) { headers_ = std::move(headers); }
-    void addHeader(const std::string & name, const std::string & value) {
-      headers_[name] = value;
+    void addHeader(std::string name, std::string value) {
+      headers_.insert_or_assign(std::move(name), std::move(value));
     }
 
   private:

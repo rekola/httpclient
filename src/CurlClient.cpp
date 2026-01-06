@@ -411,7 +411,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 
 std::unique_ptr<HTTPClient>
 CurlClientFactory::createClient2(std::string user_agent, bool enable_cookies, bool enable_keepalive) {
-  return std::unique_ptr<CurlClient>(new CurlClient("", std::move(user_agent), enable_cookies, enable_keepalive));
+  return std::make_unique<CurlClient>("", std::move(user_agent), enable_cookies, enable_keepalive);
 }
 
 static void lock_cb(CURL *handle, curl_lock_data data, curl_lock_access access, void *userptr) {

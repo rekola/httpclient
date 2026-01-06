@@ -13,10 +13,10 @@
 namespace httpclient {  
   class HTTPClient {
   public:
-    HTTPClient(const std::string & _user_agent, bool _enable_cookies, bool _enable_keepalive)
-      : user_agent(_user_agent),
-	enable_cookies(_enable_cookies),
-	enable_keepalive(_enable_keepalive)
+    HTTPClient(std::string user_agent, bool enable_cookies, bool enable_keepalive) noexcept
+      : user_agent(std::move(user_agent)),
+	enable_cookies(enable_cookies),
+	enable_keepalive(enable_keepalive)
     { }  
     HTTPClient(const HTTPClient & other) = delete;
 
@@ -24,8 +24,8 @@ namespace httpclient {
   
     HTTPClient & operator=(const HTTPClient & other) = delete;
     
-    HTTPResponse Post(const std::string & uri, const std::string & data) {
-      HTTPRequest req(Method::POST, uri);
+    HTTPResponse Post(std::string uri, std::string data) {
+      HTTPRequest req(Method::POST, std::move(uri));
       req.setContent(data);
       req.setContentType("application/x-www-form-urlencoded;charset=UTF-8");
       req.setConnectTimeout(getConnectTimeout());
@@ -36,9 +36,9 @@ namespace httpclient {
       return response;
     }
 
-    HTTPResponse Post(const std::string & uri, const std::string & data, const Authorization & auth) {
-      HTTPRequest req(Method::POST, uri);
-      req.setContent(data);
+    HTTPResponse Post(std::string uri, std::string data, const Authorization & auth) {
+      HTTPRequest req(Method::POST, std::move(uri));
+      req.setContent(std::move(data));
       req.setContentType("application/x-www-form-urlencoded;charset=UTF-8");
       req.setConnectTimeout(getConnectTimeout());
       req.setReadTimeout(getReadTimeout());
@@ -48,9 +48,9 @@ namespace httpclient {
       return response;
     }
   
-    void Post(const std::string & uri, const std::string & data, const Authorization & auth, HTTPClientInterface & callback) {
-      HTTPRequest req(Method::POST, uri);
-      req.setContent(data);
+    void Post(std::string uri, std::string data, const Authorization & auth, HTTPClientInterface & callback) {
+      HTTPRequest req(Method::POST, std::move(uri));
+      req.setContent(std::move(data));
       req.setContentType("application/x-www-form-urlencoded;charset=UTF-8");
       req.setConnectTimeout(getConnectTimeout());
       req.setReadTimeout(getReadTimeout());
@@ -58,22 +58,20 @@ namespace httpclient {
       request(req, auth, callback);
     }
 
-    void Get(const std::string & uri, const std::string & data, const Authorization & auth, HTTPClientInterface & callback) {
-      std::string uri2 = uri;
-      uri2 += '?';
-      uri2 += data;
-      HTTPRequest req(Method::GET, uri2);
+    void Get(std::string uri, std::string_view data, const Authorization & auth, HTTPClientInterface & callback) {
+      uri += '?';
+      uri += data;
+      HTTPRequest req(Method::GET, std::move(uri));
       req.setConnectTimeout(getConnectTimeout());
       req.setReadTimeout(getReadTimeout());
       req.setConnectionTimeout(getConnectionTimeout());
       request(req, auth, callback);
     }
 
-    HTTPResponse Get(const std::string & uri, const std::string & data, const Authorization & auth, bool follow_location = true) {
-      std::string uri2 = uri;
-      uri2 += '?';
-      uri2 += data;
-      HTTPRequest req(Method::GET, uri2);
+    HTTPResponse Get(std::string uri, std::string_view data, const Authorization & auth, bool follow_location = true) {
+      uri += '?';
+      uri += data;
+      HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
       req.setConnectTimeout(getConnectTimeout());
       req.setReadTimeout(getReadTimeout());
@@ -83,11 +81,10 @@ namespace httpclient {
       return response;
     }
 
-    HTTPResponse Get(const std::string & uri, const std::string & data, bool follow_location = true) {
-      std::string uri2 = uri;
-      uri2 += '?';
-      uri2 += data;
-      HTTPRequest req(Method::GET, uri2);
+    HTTPResponse Get(std::string uri, std::string_view data, bool follow_location = true) {
+      uri += '?';
+      uri += data;
+      HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
       req.setConnectTimeout(getConnectTimeout());
       req.setReadTimeout(getReadTimeout());
@@ -97,11 +94,10 @@ namespace httpclient {
       return response;
     }
 
-    void Get(const std::string & uri, const std::string & data, HTTPClientInterface & callback, bool follow_location = true) {
-      std::string uri2 = uri;
-      uri2 += '?';
-      uri2 += data;
-      HTTPRequest req(Method::GET, uri2);
+    void Get(std::string uri, std::string_view data, HTTPClientInterface & callback, bool follow_location = true) {
+      uri += '?';
+      uri += data;
+      HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
       req.setConnectTimeout(getConnectTimeout());
       req.setReadTimeout(getReadTimeout());
@@ -109,8 +105,8 @@ namespace httpclient {
       request(req, noAuth, callback);
     }
 
-    HTTPResponse Get(const std::string & uri, bool follow_location = true) {
-      HTTPRequest req(Method::GET, uri);
+    HTTPResponse Get(std::string uri, bool follow_location = true) {
+      HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
       req.setConnectTimeout(getConnectTimeout());
       req.setReadTimeout(getReadTimeout());
@@ -120,8 +116,8 @@ namespace httpclient {
       return response;
     }
   
-    HTTPResponse Get(const std::string & uri, const Authorization & auth, bool follow_location = true) {
-      HTTPRequest req(Method::GET, uri);
+    HTTPResponse Get(std::string uri, const Authorization & auth, bool follow_location = true) {
+      HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
       req.setConnectTimeout(getConnectTimeout());
       req.setReadTimeout(getReadTimeout());
@@ -131,8 +127,8 @@ namespace httpclient {
       return response;
     }
 
-    void Get(const std::string & uri, HTTPClientInterface & callback, bool follow_location = true) {
-      HTTPRequest req(Method::GET, uri);
+    void Get(std::string uri, HTTPClientInterface & callback, bool follow_location = true) {
+      HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
       req.setConnectTimeout(getConnectTimeout());
       req.setReadTimeout(getReadTimeout());
@@ -140,10 +136,13 @@ namespace httpclient {
       request(req, noAuth, callback);
     }
 
-    void setCookieJar(const std::string & filename) { cookie_jar = filename; }
+    void setCookieJar(std::string filename) { cookie_jar = std::move(filename); }
 
-    void addDefaultHeader(const std::string & name, const std::string & value) {
-      default_headers[name] = value;
+    void addDefaultHeader(std::string name, std::string value) {
+      default_headers.insert_or_assign(std::move(name), std::move(value));
+    }
+    void addDefaultHeader(std::string_view name, std::string_view value) {
+      default_headers.insert_or_assign(std::string{ name }, std::string{ value });
     }
 
     virtual void request(const HTTPRequest & req, const Authorization & auth, HTTPClientInterface & callback) = 0;
@@ -160,7 +159,7 @@ namespace httpclient {
     Authorization noAuth;
 
   protected:
-    const std::string & getUserAgent() const { return user_agent; }
+    const std::string & getUserAgent() const noexcept { return user_agent; }
 
     std::string user_agent;
     std::string cookie_jar;
@@ -171,18 +170,18 @@ namespace httpclient {
 
   class HTTPClientFactory {
   public:
-    HTTPClientFactory(const char * default_user_agent = "httpclient") : default_user_agent_(default_user_agent) { }
+    HTTPClientFactory(std::string default_user_agent = "httpclient") noexcept : default_user_agent_(std::move(default_user_agent)) { }
     virtual ~HTTPClientFactory() { }
 
     std::unique_ptr<HTTPClient> createClient(std::string user_agent, bool enable_cookies = true, bool enable_keepalive = true) {
-      return createClient2(user_agent, enable_cookies, enable_keepalive);
+      return createClient2(std::move(user_agent), enable_cookies, enable_keepalive);
     }
 
     std::unique_ptr<HTTPClient> createClient(bool enable_cookies = true, bool enable_keepalive = true) {
       return createClient2(getDefaultUserAgent(), enable_cookies, enable_keepalive);
     }
 
-    const std::string & getDefaultUserAgent() const { return default_user_agent_; }
+    const std::string & getDefaultUserAgent() const noexcept { return default_user_agent_; }
 
   protected:
     virtual std::unique_ptr<HTTPClient> createClient2(std::string user_agent, bool enable_cookies = true, bool enable_keepalive = true) = 0;
