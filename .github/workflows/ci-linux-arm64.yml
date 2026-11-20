@@ -2,7 +2,7 @@ name: Linux ARM64
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
   workflow_dispatch:
 
@@ -15,10 +15,10 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake pkg-config libcurl4-openssl-dev libutf8proc-dev python3
+          sudo apt-get install -y cmake pkg-config libcurl4-openssl-dev libunistring-dev python3
 
       - name: Configure
-        run: cmake -B build
+        run: cmake -B build -DHTTPCLIENT_UNICODE=LIBUNISTRING
 
       - name: Build
         run: cmake --build build -j"$(nproc)"

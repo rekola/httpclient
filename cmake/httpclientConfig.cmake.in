@@ -1,11 +1,28 @@
 @PACKAGE_INIT@
 
 include(CMakeFindDependencyMacro)
-find_dependency(PkgConfig)
-pkg_check_modules(UTF8PROC REQUIRED IMPORTED_TARGET libutf8proc)
 if(@HTTPCLIENT_FIND_CURL@)
   find_dependency(CURL)
   find_dependency(Threads)
+endif()
+
+# The Unicode library the installed library was built with.
+if("@HTTPCLIENT_UNICODE_RESOLVED@" STREQUAL "LIBUNISTRING")
+  find_path(HTTPCLIENT_UNISTRING_INCLUDE_DIR unistr.h)
+  find_library(HTTPCLIENT_UNISTRING_LIBRARY unistring)
+  if(NOT HTTPCLIENT_UNISTRING_INCLUDE_DIR OR NOT HTTPCLIENT_UNISTRING_LIBRARY)
+    set(httpclient_FOUND FALSE)
+    set(httpclient_NOT_FOUND_MESSAGE "httpclient needs libunistring")
+    return()
+  endif()
+  if(NOT TARGET Unistring::Unistring)
+    add_library(Unistring::Unistring UNKNOWN IMPORTED)
+    set_target_properties(Unistring::Unistring PROPERTIES
+      IMPORTED_LOCATION "${HTTPCLIENT_UNISTRING_LIBRARY}" INTERFACE_INCLUDE_DIRECTORIES "${HTTPCLIENT_UNISTRING_INCLUDE_DIR}")
+  endif()
+else()
+  find_dependency(PkgConfig)
+  pkg_check_modules(UTF8PROC REQUIRED IMPORTED_TARGET libutf8proc)
 endif()
 
 include("${CMAKE_CURRENT_LIST_DIR}/httpclientTargets.cmake")

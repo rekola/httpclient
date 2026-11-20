@@ -104,6 +104,27 @@ static void testURI() {
   CHECK(back["a"] == "1" && back["b"] == "2 3");
 }
 
+// The host name as URI folds it: lower case, composed, without what is ignorable. The same with either Unicode library.
+static void testReducedDomain() {
+  auto reduced = [](const std::string & domain) {
+    URI u;
+    u.setDomain(domain);
+    return u.getReducedDomain();
+  };
+  CHECK(reduced("Example.COM") == "example.com");
+  CHECK(reduced("WWW.Example.COM") == "example.com");
+  CHECK(reduced("") == "");
+  CHECK(reduced("\xc3\x84PYR\xc3\x84.FI") == "\xc3\xa4pyr\xc3\xa4.fi");        // ÄPYRÄ.FI
+  CHECK(reduced("A\xcc\x88.fi") == "\xc3\xa4.fi");                               // A + combining diaeresis
+  CHECK(reduced("Stra\xc3\x9f" "e.de") == "strasse.de");                          // full case folding
+  CHECK(reduced("ex\xc2\xad" "ample.com") == "example.com");                      // a soft hyphen is ignorable
+  CHECK(reduced("exa\x01mple.com") == "example.com");                              // a control character is dropped
+  CHECK(reduced("ex\nample.com") == "ex ample.com");                               // a newline is one space
+  CHECK(reduced("ex\r\nample.com") == "ex ample.com");
+  CHECK(reduced("\xff.com").empty());                                              // not UTF-8
+  CHECK(URI("http://Example.COM/").getDomainHash() == FNV::calcFNV1a_64(std::string("example.com")));
+}
+
 static void testAuthorization() {
   CHECK(BasicAuth("user", "pass").createHeader() == "Basic dXNlcjpwYXNz");
   CHECK(BasicAuth("user", "pass").getHeaderName() == std::string("Authorization"));
@@ -152,6 +173,7 @@ int main() {
   testBase64Url();
   testHashes();
   testURI();
+  testReducedDomain();
   testAuthorization();
   testRequest();
   testResponseHeaders();

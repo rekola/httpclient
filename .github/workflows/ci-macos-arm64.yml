@@ -2,12 +2,12 @@ name: macOS ARM64
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
   workflow_dispatch:
 
 jobs:
-  # Apple clang, the SDK's libcurl and Homebrew's utf8proc.
+  # Apple clang, the SDK's libcurl and Homebrew's libunistring.
   build-and-test:
     runs-on: macos-15
 
@@ -20,10 +20,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: brew install cmake ninja pkg-config utf8proc
+        run: brew install cmake ninja pkg-config libunistring
 
       - name: Configure
-        run: cmake -G Ninja -B build
+        run: cmake -G Ninja -B build -DHTTPCLIENT_UNICODE=LIBUNISTRING
 
       # -k 0: report every compile error in one run, not just the first.
       - name: Build

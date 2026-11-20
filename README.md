@@ -118,15 +118,18 @@ What it needs:
 | | Needed for | Linux (apt) | macOS (Homebrew) | Windows (MSYS2 UCRT64) |
 |---|---|---|---|---|
 | libcurl | the libcurl backend | `libcurl4-openssl-dev` | in the SDK | not used (WinHTTP) |
-| utf8proc | `URI` | `libutf8proc-dev` | `utf8proc` | `mingw-w64-ucrt-x86_64-utf8proc` |
-| pkg-config | finding utf8proc | `pkg-config` | `pkg-config` | `mingw-w64-ucrt-x86_64-pkgconf` |
+| utf8proc or libunistring | `URI` (it folds the case of host names) | `libutf8proc-dev` or `libunistring-dev` | `utf8proc` or `libunistring` | `mingw-w64-ucrt-x86_64-utf8proc` or `-libunistring` |
+| pkg-config | finding utf8proc (libunistring is found without it) | `pkg-config` | `pkg-config` | `mingw-w64-ucrt-x86_64-pkgconf` |
 | Python 3 | the loopback test (skipped without it) | `python3` | `python3` | `mingw-w64-ucrt-x86_64-python` |
 
-Without a system utf8proc, CMake fetches and builds it (`HTTPCLIENT_FETCH_UTF8PROC`,
-on by default); that build has no install rules, because the installed library
-would need it too.
+`HTTPCLIENT_UNICODE` picks the library: `AUTO` (the default) takes a system
+utf8proc, else a system libunistring, else fetches and builds utf8proc
+(`HTTPCLIENT_FETCH_UTF8PROC`, on by default; that build has no install rules,
+because the installed library would need it too). `UTF8PROC` and `LIBUNISTRING`
+insist on one. Both give the same results; the tests run under either, and CI
+builds with each.
 
-Options: the backend options above, `HTTPCLIENT_BUILD_TESTS` and
+Options: the backend options above, `HTTPCLIENT_UNICODE`, `HTTPCLIENT_BUILD_TESTS` and
 `HTTPCLIENT_INSTALL` (both on when httpclient is the top-level project), and
 `BUILD_SHARED_LIBS`.
 
