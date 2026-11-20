@@ -202,7 +202,7 @@ class CurlClient : public HTTPClient {
       
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, &context);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &context);
-    curl_easy_setopt(curl, CURLOPT_PROGRESSDATA, &context);
+    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &context);
 
     char errbuf[CURL_ERROR_SIZE];
     errbuf[0] = 0;
@@ -228,7 +228,7 @@ class CurlClient : public HTTPClient {
     
     curl_easy_setopt(curl, CURLOPT_HEADERDATA, 0);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, 0);
-    curl_easy_setopt(curl, CURLOPT_PROGRESSDATA, 0);
+    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, 0);
     curl_easy_setopt(curl, CURLOPT_USERPWD, 0);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 0);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, 0);
@@ -256,7 +256,7 @@ class CurlClient : public HTTPClient {
 	curl_easy_setopt(curl, CURLOPT_USERAGENT, user_agent.c_str());
 	curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1);
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data_func);
-	curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION, progress_func);
+	curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, progress_func);
 	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, headers_func);
 	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
 	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
@@ -285,7 +285,7 @@ class CurlClient : public HTTPClient {
  private:
   static size_t write_data_func(void * buffer, size_t size, size_t nmemb, void *userp);
   static size_t headers_func(void * buffer, size_t size, size_t nmemb, void *userp);
-  static int progress_func(void *  clientp, double dltotal, double dlnow, double ultotal, double ulnow);
+  static int progress_func(void * clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow);
 
   std::string interface_name;
   CURL * curl = 0;
@@ -327,7 +327,7 @@ CurlClient::headers_func(void * buffer, size_t size, size_t nmemb, void *userp) 
 }
 
 int
-CurlClient::progress_func(void * clientp, double dltotal, double dlnow, double ultotal, double ulnow) {
+CurlClient::progress_func(void * clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
   long long current_time_ms = get_current_time_ms();
   curl_context_s * context = (curl_context_s *)clientp;
 #if 0
