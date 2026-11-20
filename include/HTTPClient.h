@@ -138,9 +138,8 @@ namespace httpclient {
 
     void setCookieJar(std::string filename) { cookie_jar = std::move(filename); }
 
-    void addDefaultHeader(std::string name, std::string value) {
-      default_headers.insert_or_assign(std::move(name), std::move(value));
-    }
+    // A single string_view overload: having both std::string and
+    // std::string_view overloads made calls with string literals ambiguous.
     void addDefaultHeader(std::string_view name, std::string_view value) {
       default_headers.insert_or_assign(std::string{ name }, std::string{ value });
     }
