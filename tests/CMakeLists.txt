@@ -1,0 +1,22 @@
+# The utilities and the interfaces, which need no network.
+add_executable(httpclient_tests tests.cpp)
+target_link_libraries(httpclient_tests PRIVATE httpclient)
+add_test(NAME httpclient_tests COMMAND httpclient_tests)
+
+# A backend against a server on this machine: the runner starts the server, then runs the smoke program against it.
+if(HTTPCLIENT_CURL OR HTTPCLIENT_WINHTTP)
+  find_package(Python3 COMPONENTS Interpreter)
+  if(Python3_FOUND)
+    add_executable(httpclient_smoke smoke.cpp)
+    target_link_libraries(httpclient_smoke PRIVATE httpclient)
+    if(HTTPCLIENT_CURL)
+      target_compile_definitions(httpclient_smoke PRIVATE HTTPCLIENT_SMOKE_CURL)
+    else()
+      target_compile_definitions(httpclient_smoke PRIVATE HTTPCLIENT_SMOKE_WINHTTP)
+    endif()
+    add_test(NAME httpclient_smoke COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/run_smoke.py $<TARGET_FILE:httpclient_smoke>)
+    set_tests_properties(httpclient_smoke PROPERTIES TIMEOUT 60)
+  else()
+    message(STATUS "httpclient: no Python 3, so the loopback test of the backend is not built")
+  endif()
+endif()

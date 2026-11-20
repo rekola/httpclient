@@ -8,7 +8,14 @@
 #include <cstring>
 #include <iterator>
 
+#ifdef HTTPCLIENT_USE_LIBUNISTRING
+#include <unicase.h>
+#include <unictype.h>
+#include <uninorm.h>
+#include <unistr.h>
+#else
 #include <utf8proc.h>
+#endif
 
 #include "FNV.h"
 
@@ -48,6 +55,37 @@ static vector<string> split(const string & line, char delimiter) {
   return v;
 }
 
+// Case-folded, composed (NFC) UTF-8, without default ignorable code points or control characters (a newline becomes
+// one space); "" for input that is not valid UTF-8.
+#ifdef HTTPCLIENT_USE_LIBUNISTRING
+static string toLower(const string & input) {
+  const uint8_t * begin = reinterpret_cast<const uint8_t *>(input.data());
+  const uint8_t * end = begin + input.size();
+  if (u8_check(begin, input.size()) != nullptr) return "";
+  std::vector<uint8_t> kept;
+  for (const uint8_t * p = begin; p < end;) {
+    ucs4_t uc;
+    int n = u8_mbtouc(&uc, p, static_cast<size_t>(end - p));
+    if (n <= 0) return "";
+    p += n;
+    if (uc == 0x0D && p < end && *p == 0x0A) p++;  // CR LF is one newline
+    if (uc == 0x0A || uc == 0x0D || uc == 0x0B || uc == 0x0C || uc == 0x85) {
+      kept.push_back(' ');
+    } else if (uc < 0x20 || (uc >= 0x7F && uc < 0xA0) || uc_is_property_default_ignorable_code_point(uc)) {
+      continue;
+    } else {
+      kept.insert(kept.end(), p - n, p);
+    }
+  }
+  if (kept.empty()) return "";
+  size_t length = 0;
+  uint8_t * folded = u8_casefold(kept.data(), kept.size(), nullptr, UNINORM_NFC, nullptr, &length);
+  if (!folded) return "";
+  std::string r(reinterpret_cast<char *>(folded), length);
+  free(folded);
+  return r;
+}
+#else
 static string toLower(const string & input) {
   utf8proc_uint8_t * dest;
   utf8proc_option_t options = utf8proc_option_t(UTF8PROC_IGNORE | UTF8PROC_STRIPCC | UTF8PROC_CASEFOLD | UTF8PROC_COMPOSE);
@@ -64,6 +102,7 @@ static string toLower(const string & input) {
     return "";
   }
 }
+#endif
 
 URI::URI() : port(0), is_canonical(false) { // , http_status_code(0) {
 

@@ -4,9 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`httpclient` is a C++17 library (namespace `httpclient`) that wraps platform HTTP stacks behind one interface: libcurl, Windows WinHTTP, Android `HttpURLConnection` (via JNI), and iOS (CFNetwork / `NSMutableURLRequest`). It is meant to be consumed as source by a host project.
+`httpclient` is a C++17 library (namespace `httpclient`) that wraps platform HTTP stacks behind one interface: libcurl, Windows WinHTTP, Android `HttpURLConnection` (via JNI), and iOS (CFNetwork / `NSMutableURLRequest`). It is meant to be consumed by a host project: as a subdirectory or with `FetchContent`, or installed.
 
-There is **no build system, test suite, or linter** in this repo (no CMake/Makefile/tests). Headers live in `include/`, sources in `src/`; the consumer compiles the files for its target platform with `include/` on the include path. Only compile the backend(s) for the platform you target — the others need platform SDKs (`jni.h`, CoreFoundation, `<winhttp.h>`, libcurl). To syntax-check on Linux, `g++ -std=c++17 -Iinclude -c src/<file>.cpp` works for the portable files (`CurlClient.cpp` needs libcurl headers).
+Headers live in `include/`, sources in `src/`. It builds with CMake (`CMakeLists.txt`): a single `httpclient` library (alias `httpclient::httpclient`) of the utilities plus the backends the options select (`HTTPCLIENT_CURL`, `HTTPCLIENT_WINHTTP`, `HTTPCLIENT_ANDROID`, `HTTPCLIENT_CFNETWORK`, `HTTPCLIENT_NSURL`; the defaults pick the platform's own). Only compile the backend(s) for the platform you target — the others need platform SDKs (`jni.h`, CoreFoundation, `<winhttp.h>`, libcurl). `URI.cpp` needs utf8proc or libunistring (`HTTPCLIENT_UNICODE`; `AUTO` takes a system utf8proc, else a system libunistring, else fetches utf8proc); `toLower` in `URI.cpp` has one implementation per library and the tests must pass with both. CI uses libunistring on Linux ARM64 and macOS, utf8proc on Linux x86-64 and Windows.
+
+    cmake -B build && cmake --build build -j && ctest --test-dir build --output-on-failure
+
+- `tests/tests.cpp` (`httpclient_tests`): the utilities, the authorization headers and response-header parsing; no network.
+- `tests/smoke.cpp` + `tests/run_smoke.py` (`httpclient_smoke`): the backend against a Python server on this machine. Add a case to both when you change what a backend does.
+- `tests/consumer/`: a project that uses the installed library (`find_package(httpclient)`); CI installs to a prefix and builds it.
+- CI (`.github/workflows/`): Linux x86-64 and ARM64, macOS, Windows (MSYS2 UCRT64, WinHTTP). The Android and Apple (CFNetwork, NSURL) backends are not built by CI.
 
 ## Architecture
 
