@@ -27,11 +27,11 @@ jobs:
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-pkgconf
-            mingw-w64-ucrt-x86_64-utf8proc
+            mingw-w64-ucrt-x86_64-libunistring
             mingw-w64-ucrt-x86_64-python
 
       - name: Configure
-        run: cmake -G Ninja -B build
+        run: cmake -G Ninja -B build -DHTTPCLIENT_UNICODE=LIBUNISTRING
 
       - name: Build
         run: cmake --build build

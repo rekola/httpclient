@@ -118,7 +118,7 @@ What it needs:
 | | Needed for | Linux (apt) | macOS (Homebrew) | Windows (MSYS2 UCRT64) |
 |---|---|---|---|---|
 | libcurl | the libcurl backend | `libcurl4-openssl-dev` | in the SDK | not used (WinHTTP) |
-| utf8proc or libunistring | `URI` (it folds the case of host names) | `libutf8proc-dev` or `libunistring-dev` | `utf8proc` or `libunistring` | `mingw-w64-ucrt-x86_64-utf8proc` or `-libunistring` |
+| utf8proc or libunistring | `URI` (it folds the case of host names) | `libutf8proc-dev` or `libunistring-dev` | `utf8proc` or `libunistring` | `mingw-w64-ucrt-x86_64-libunistring` |
 | pkg-config | finding utf8proc (libunistring is found without it) | `pkg-config` | `pkg-config` | `mingw-w64-ucrt-x86_64-pkgconf` |
 | Python 3 | the loopback test (skipped without it) | `python3` | `python3` | `mingw-w64-ucrt-x86_64-python` |
 
