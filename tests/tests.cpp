@@ -47,8 +47,15 @@ static void testBase64() {
   std::string long_input(100, 'a');
   CHECK(Base64::encode(long_input).find('\n') != std::string::npos);
   CHECK(Base64::encode(long_input, 0, 1000).find('\n') == std::string::npos);
+  // Least significant digit first, in the URL alphabet; what is encoded decodes to the same number.
   CHECK(Base64::encode64BitId(0) == "");
-  CHECK(Base64::encode64BitId(63).size() == 1 && Base64::encode64BitId(64).size() == 2);
+  CHECK(Base64::encode64BitId(1) == "B");
+  CHECK(Base64::encode64BitId(63) == "_");
+  CHECK(Base64::encode64BitId(64) == "AB");
+  CHECK(Base64::encode64BitId(65) == "BB");
+  for (unsigned long long id : {0ULL, 1ULL, 63ULL, 64ULL, 4095ULL, 4096ULL, 123456789012345ULL, 0x0123456789abcdefULL, ~0ULL}) {
+    CHECK(Base64::decode64BitId(Base64::encode64BitId(id)) == id);
+  }
 }
 
 static void testBase64Url() {
@@ -113,6 +120,10 @@ static void testReducedDomain() {
   };
   CHECK(reduced("Example.COM") == "example.com");
   CHECK(reduced("WWW.Example.COM") == "example.com");
+  CHECK(reduced("www2.example.org") == "example.org");  // a digit after www is stripped too
+  CHECK(reduced("abc2.example.org") == "abc2.example.org");
+  CHECK(reduced("wwwx.example.org") == "wwwx.example.org");
+  CHECK(reduced("www.") == "");
   CHECK(reduced("") == "");
   CHECK(reduced("\xc3\x84PYR\xc3\x84.FI") == "\xc3\xa4pyr\xc3\xa4.fi");        // ÄPYRÄ.FI
   CHECK(reduced("A\xcc\x88.fi") == "\xc3\xa4.fi");                               // A + combining diaeresis

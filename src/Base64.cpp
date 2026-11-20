@@ -57,37 +57,19 @@ static inline unsigned char base64_decode_digit(char c) {
   return 0xff;
 }
 
+// The id as base-64 digits (the URL alphabet), least significant digit first, as Base64Url::encode_id writes it; 0 is "".
 unsigned long long
 Base64::decode64BitId(const std::string & input) {
   unsigned long long n = 0;
-#if 1
-  for (int i = input.size() - 1; i >= 0; i--) {
-    int c = base64_decode_digit(input[i]);
-    n = 64 * n + c;
+  for (int i = static_cast<int>(input.size()) - 1; i >= 0; i--) {
+    n = 64 * n + base64_decode_digit(input[static_cast<size_t>(i)]);
   }
-#else
-  for (unsigned int i = 0; i < input.size(); i++) {
-    int c = base64_decode_digit(input[i]);
-    n = 64 * n + c;
-  }
-#endif
-    
   return n;
 }
 
 string
 Base64::encode64BitId(unsigned long long a) {
   string s;
-  while (a) {
-#if 1
-    int b = a & 63;
-    a = a >> 6;
-    s = alphabet2[b] + s;
-#else
-    auto b = a % 64;
-    a /= 64;
-    s = alphabet2[b] + s;
-#endif
-  }
+  for (; a; a >>= 6) s += alphabet2[a & 63];
   return s;
 }

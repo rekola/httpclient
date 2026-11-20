@@ -381,7 +381,7 @@ URI::getReducedDomain() const {
   string d = toLower(domain);
   if (d.compare(0, 4, "www.") == 0) {
     return d.substr(4);
-  } else if (d.size() >= 5 && d.compare(0, 3, "www") && isdigit(d[3]) && d[4] == '.') {
+  } else if (d.size() >= 5 && d.compare(0, 3, "www") == 0 && isdigit(static_cast<unsigned char>(d[3])) && d[4] == '.') {
     return d.substr(5);
   } else {
     return d;

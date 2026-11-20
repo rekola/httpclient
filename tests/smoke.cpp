@@ -72,9 +72,11 @@ int main(int argc, char ** argv) {
     HTTPResponse stopped = client->Get(base + "/redirect", false);
     CHECK(stopped.isRedirect() && contains(stopped.getRedirectUrl(), "/hello"));
   }
-  {  // the data of a GET is its query string (a std::string_view: a bare literal would pick the follow_location overload)
-    HTTPResponse r = client->Get(base + "/query", std::string_view("a=1&b=2"));
-    CHECK(r.getContent() == "a=1&b=2");
+  {  // the data of a GET is its query string, whether a literal, a std::string or a std::string_view
+    CHECK(client->Get(base + "/query", "a=1&b=2").getContent() == "a=1&b=2");
+    CHECK(client->Get(base + "/query", std::string("c=3")).getContent() == "c=3");
+    CHECK(client->Get(base + "/query", std::string_view("d=4")).getContent() == "d=4");
+    CHECK(client->Get(base + "/redirect", false).isRedirect());  // a bool is still follow_location
   }
   {  // a POST sends its body as a form
     HTTPResponse r = client->Post(base + "/echo", "a=1&b=two");
