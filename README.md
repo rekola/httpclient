@@ -74,15 +74,11 @@ The ways to call, all on `HTTPClient`:
 
 ```cpp
 client->Get(url);                                   // query string in the URL
-client->Get(url, std::string_view("a=1&b=2"));      // the data is the query string
+client->Get(url, "a=1&b=2");                        // the data is the query string
 client->Get(url, httpclient::BearerAuth("token"));  // with authorization
 client->Post(url, "a=1&b=2");                       // a form (x-www-form-urlencoded)
 client->Post(url, body, httpclient::BasicAuth("user", "password"));
 ```
-
-Pass the query data of `Get` as a `std::string_view` (or a `std::string`): a
-bare string literal there picks the overload whose second parameter is
-`follow_location`, and the data is silently dropped.
 
 To read a body as it arrives, or to stop early, give the call a callback instead
 of taking an `HTTPResponse`; returning `false` from `handleChunk` ends the

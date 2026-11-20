@@ -105,6 +105,12 @@ namespace httpclient {
       request(req, noAuth, callback);
     }
 
+    // A string literal as the data: without this it would convert to bool and pick the overload below, which
+    // takes follow_location and drops the data.
+    HTTPResponse Get(std::string uri, const char * data, bool follow_location = true) {
+      return Get(std::move(uri), std::string_view(data), follow_location);
+    }
+
     HTTPResponse Get(std::string uri, bool follow_location = true) {
       HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
