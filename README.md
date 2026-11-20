@@ -177,6 +177,4 @@ Mikael Rekola; Mikko Suni (Android support).
 
 ## License
 
-MIT, see [LICENSE](LICENSE), except that `SHA1.cpp` and `sha2.cpp` (and their
-headers) are PolarSSL code under the GNU GPL version 2 or later, as their headers
-say.
+MIT, see [LICENSE](LICENSE).
