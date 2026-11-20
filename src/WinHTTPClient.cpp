@@ -15,6 +15,11 @@
 #include <mutex>
 #include <VersionHelpers.h>
 
+// Not in every set of Windows headers (MinGW's has none); the four flags it is combined with are WinHTTP's own.
+#ifndef SECURITY_FLAG_IGNORE_ALL_CERT_ERRORS
+#define SECURITY_FLAG_IGNORE_ALL_CERT_ERRORS 0
+#endif
+
 using namespace std;
 using namespace httpclient;
 
