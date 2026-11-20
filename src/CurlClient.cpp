@@ -185,6 +185,9 @@ class CurlClient : public HTTPClient {
       curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
       curl_easy_setopt(curl, CURLOPT_SSLVERSION, CURL_SSLVERSION_DEFAULT);
     }
+    // The certificate is checked unless the request says not to; set on every request, because the handle is reused.
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, req.getIgnoreCertificateErrors() ? 0L : 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, req.getIgnoreCertificateErrors() ? 0L : 2L);
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, req.getFollowLocation() ? 1 : 0);
     curl_easy_setopt(curl, CURLOPT_URL, req.getURI().c_str());
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
@@ -258,8 +261,6 @@ class CurlClient : public HTTPClient {
 	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data_func);
 	curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, progress_func);
 	curl_easy_setopt(curl, CURLOPT_HEADERFUNCTION, headers_func);
-	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0);
-	curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0);
 	curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
 	curl_easy_setopt(curl, CURLOPT_DNS_CACHE_TIMEOUT, 300);
 	curl_easy_setopt(curl, CURLOPT_VERBOSE, 0);

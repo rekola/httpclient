@@ -11,7 +11,7 @@ Headers live in `include/`, sources in `src/`. It builds with CMake (`CMakeLists
     cmake -B build && cmake --build build -j && ctest --test-dir build --output-on-failure
 
 - `tests/tests.cpp` (`httpclient_tests`): the utilities, the authorization headers and response-header parsing; no network.
-- `tests/smoke.cpp` + `tests/run_smoke.py` (`httpclient_smoke`): the backend against a Python server on this machine. Add a case to both when you change what a backend does.
+- `tests/smoke.cpp` + `tests/run_smoke.py` (`httpclient_smoke`): the backend against a Python server on this machine, plain and HTTPS (a self-signed certificate made with the `openssl` command; CI sets `HTTPCLIENT_REQUIRE_TLS_TEST` so a missing `openssl` fails instead of skipping). Add a case to both when you change what a backend does.
 - `tests/consumer/`: a project that uses the installed library (`find_package(httpclient)`); CI installs to a prefix and builds it.
 - CI (`.github/workflows/`): Linux x86-64 and ARM64, macOS, Windows (MSYS2 UCRT64, WinHTTP). The Android and Apple (CFNetwork, NSURL) backends are not built by CI.
 
@@ -24,6 +24,8 @@ Three layers, spread across several headers:
 - **`HTTPClientFactory`** — one subclass per backend (`CurlClientFactory`, `AndroidClientFactory`, `iOSClientFactory`, `iOSCFClientFactory`, `WinHTTPClientFactory`). Public `createClient()` forwards to the protected virtual `createClient2(user_agent, cookies, keepalive)`. The concrete client classes are defined inside each `.cpp` (not exposed in headers). Some backends have static setup: `CurlClientFactory::globalInit/globalCleanup`, `AndroidClientFactory::initialize(JNIEnv*)`.
 
 Auth is a separate strategy: `Authorization` (`getHeaderName`, `createHeader`, `getToken`) with `BasicAuth`, `BearerAuth`, and `OAuth` (OAuth 1.0 signing, uses `SHA1`, `Base64`, `URI`; `content` map must stay ordered). `HTTPClient::noAuth` is the default no-op instance.
+
+Certificates are checked unless `HTTPClient::setIgnoreCertificateErrors` / `HTTPRequest::setIgnoreCertificateErrors` says not to (libcurl, WinHTTP, CFNetwork; the others always check); a backend must read the request's flag, and the `Get`/`Post` overloads copy the client's through `applyDefaults`.
 
 `HTTPRequest` only supports `GET`, `POST`, `OPTIONS` (PUT/DELETE are commented out). `to_string(Method)` values are used verbatim by backends, so don't change them.
 

@@ -9,13 +9,16 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
+    # The tests make a self-signed certificate with openssl for the HTTPS cases; without it they would be skipped.
+    env:
+      HTTPCLIENT_REQUIRE_TLS_TEST: '1'
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake pkg-config libcurl4-openssl-dev libutf8proc-dev python3
+          sudo apt-get install -y cmake pkg-config libcurl4-openssl-dev libutf8proc-dev python3 openssl
 
       - name: Configure
         run: cmake -B build

@@ -28,9 +28,7 @@ namespace httpclient {
       HTTPRequest req(Method::POST, std::move(uri));
       req.setContent(data);
       req.setContentType("application/x-www-form-urlencoded;charset=UTF-8");
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       HTTPResponse response;
       request(req, noAuth, response);
       return response;
@@ -40,9 +38,7 @@ namespace httpclient {
       HTTPRequest req(Method::POST, std::move(uri));
       req.setContent(std::move(data));
       req.setContentType("application/x-www-form-urlencoded;charset=UTF-8");
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       HTTPResponse response;
       request(req, auth, response);
       return response;
@@ -52,9 +48,7 @@ namespace httpclient {
       HTTPRequest req(Method::POST, std::move(uri));
       req.setContent(std::move(data));
       req.setContentType("application/x-www-form-urlencoded;charset=UTF-8");
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       request(req, auth, callback);
     }
 
@@ -62,9 +56,7 @@ namespace httpclient {
       uri += '?';
       uri += data;
       HTTPRequest req(Method::GET, std::move(uri));
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       request(req, auth, callback);
     }
 
@@ -73,9 +65,7 @@ namespace httpclient {
       uri += data;
       HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       HTTPResponse response;
       request(req, auth, response);
       return response;
@@ -86,9 +76,7 @@ namespace httpclient {
       uri += data;
       HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       HTTPResponse response;
       request(req, noAuth, response);
       return response;
@@ -99,9 +87,7 @@ namespace httpclient {
       uri += data;
       HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       request(req, noAuth, callback);
     }
 
@@ -114,9 +100,7 @@ namespace httpclient {
     HTTPResponse Get(std::string uri, bool follow_location = true) {
       HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       HTTPResponse response;
       request(req, noAuth, response);
       return response;
@@ -125,9 +109,7 @@ namespace httpclient {
     HTTPResponse Get(std::string uri, const Authorization & auth, bool follow_location = true) {
       HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       HTTPResponse response;
       request(req, auth, response);
       return response;
@@ -136,9 +118,7 @@ namespace httpclient {
     void Get(std::string uri, HTTPClientInterface & callback, bool follow_location = true) {
       HTTPRequest req(Method::GET, std::move(uri));
       req.setFollowLocation(follow_location);
-      req.setConnectTimeout(getConnectTimeout());
-      req.setReadTimeout(getReadTimeout());
-      req.setConnectionTimeout(getConnectionTimeout());
+      applyDefaults(req);
       request(req, noAuth, callback);
     }
 
@@ -161,9 +141,23 @@ namespace httpclient {
     int getReadTimeout() const { return read_timeout; }
     int getConnectionTimeout() const { return connection_timeout; }
 
+    // Accept any certificate an HTTPS server presents, for the requests this client makes (see
+    // HTTPRequest::setIgnoreCertificateErrors). Off by default. Supported by the libcurl, WinHTTP and CFNetwork backends;
+    // the Android and NSURLRequest ones always check the certificate.
+    void setIgnoreCertificateErrors(bool t) { ignore_certificate_errors = t; }
+    bool getIgnoreCertificateErrors() const { return ignore_certificate_errors; }
+
     Authorization noAuth;
 
   protected:
+    // What the convenience overloads copy from the client into the request they build.
+    void applyDefaults(HTTPRequest & req) const {
+      req.setConnectTimeout(getConnectTimeout());
+      req.setReadTimeout(getReadTimeout());
+      req.setConnectionTimeout(getConnectionTimeout());
+      req.setIgnoreCertificateErrors(getIgnoreCertificateErrors());
+    }
+
     const std::string & getUserAgent() const noexcept { return user_agent; }
 
     std::string user_agent;
@@ -171,6 +165,7 @@ namespace httpclient {
     bool enable_cookies, enable_keepalive;
     std::map<std::string, std::string> default_headers;
     int connect_timeout = 0, read_timeout = 0, connection_timeout = 0;
+    bool ignore_certificate_errors = false;
   };
 
   class HTTPClientFactory {

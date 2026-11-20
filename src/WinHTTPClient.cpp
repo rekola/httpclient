@@ -15,11 +15,6 @@
 #include <mutex>
 #include <VersionHelpers.h>
 
-// Not in every set of Windows headers (MinGW's has none); the four flags it is combined with are WinHTTP's own.
-#ifndef SECURITY_FLAG_IGNORE_ALL_CERT_ERRORS
-#define SECURITY_FLAG_IGNORE_ALL_CERT_ERRORS 0
-#endif
-
 using namespace std;
 using namespace httpclient;
 
@@ -313,14 +308,13 @@ class WinHTTPClient : public HTTPClient {
 	
 	context->log("sending request\r\n");
 
-	bool req_r = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, (void*)postData.data(), postData.size(), postData.size(), 0);
-
-	if (is_secure && !req_r && GetLastError() == 12175) {
-	  context->log("retrying request (https error)\r\n");
-	  DWORD security_flags = SECURITY_FLAG_IGNORE_CERT_CN_INVALID | SECURITY_FLAG_IGNORE_CERT_DATE_INVALID | SECURITY_FLAG_IGNORE_UNKNOWN_CA | SECURITY_FLAG_IGNORE_CERT_WRONG_USAGE | SECURITY_FLAG_IGNORE_ALL_CERT_ERRORS;
+	if (is_secure && req.getIgnoreCertificateErrors()) {
+	  // Asked for: accept an unknown authority, an expired or not yet valid certificate, a wrong host name and a wrong usage.
+	  DWORD security_flags = SECURITY_FLAG_IGNORE_UNKNOWN_CA | SECURITY_FLAG_IGNORE_CERT_DATE_INVALID | SECURITY_FLAG_IGNORE_CERT_CN_INVALID | SECURITY_FLAG_IGNORE_CERT_WRONG_USAGE;
 	  WinHttpSetOption(hRequest, WINHTTP_OPTION_SECURITY_FLAGS, &security_flags, sizeof(security_flags));
-	  req_r = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, (void*)postData.data(), postData.size(), postData.size(), 0);
 	}
+
+	bool req_r = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, (void*)postData.data(), postData.size(), postData.size(), 0);
 
 	if (!req_r) {
 	  callback.handleErrorText("Could not send request: " + to_string(GetLastError()));
