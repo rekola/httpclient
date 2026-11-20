@@ -11,6 +11,10 @@ jobs:
   build-and-test:
     runs-on: windows-2022
 
+    # The tests make a self-signed certificate with openssl for the HTTPS cases; without it they would be skipped.
+    env:
+      HTTPCLIENT_REQUIRE_TLS_TEST: '1'
+
     defaults:
       run:
         shell: msys2 {0}
@@ -29,6 +33,7 @@ jobs:
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-libunistring
             mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-openssl
 
       - name: Configure
         run: cmake -G Ninja -B build -DHTTPCLIENT_UNICODE=LIBUNISTRING

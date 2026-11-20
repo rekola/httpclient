@@ -2,10 +2,16 @@
 """Starts a small HTTP server on this machine and runs the smoke program against it.
 
 usage: run_smoke.py PROGRAM
-The program gets the server's base URL as its argument; its exit status is this script's.
+The program gets the base URL of the plain server and of an HTTPS server with a self-signed certificate (an empty
+string if openssl is not there to make the certificate, which is an error when HTTPCLIENT_REQUIRE_TLS_TEST is set);
+its exit status is this script's.
 """
+import os
+import shutil
+import ssl
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -61,18 +67,58 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(404, "no such path")
 
 
+class QuietServer(ThreadingHTTPServer):
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):  # a client that refuses the certificate is expected
+        pass
+
+
+def make_certificate(directory):
+    """A self-signed certificate for 127.0.0.1 and localhost; (certfile, keyfile), or None without openssl."""
+    openssl = shutil.which("openssl")
+    if not openssl:
+        return None
+    cert, key = os.path.join(directory, "cert.pem"), os.path.join(directory, "key.pem")
+    result = subprocess.run(
+        [openssl, "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", key, "-out", cert, "-days", "2",
+         "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost,IP:127.0.0.1"],
+        capture_output=True)
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr.decode(errors="replace"))
+        return None
+    return cert, key
+
+
 def main():
     if len(sys.argv) != 2:
         print(__doc__)
         return 2
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    server.daemon_threads = True
+    server = QuietServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = "http://127.0.0.1:%d" % server.server_address[1]
+
+    directory = tempfile.mkdtemp()
+    https_base = ""
+    secure = None
     try:
-        return subprocess.run([sys.argv[1], base], timeout=50).returncode
+        files = make_certificate(directory)
+        if files:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(*files)
+            secure = QuietServer(("127.0.0.1", 0), Handler)
+            secure.socket = context.wrap_socket(secure.socket, server_side=True)
+            threading.Thread(target=secure.serve_forever, daemon=True).start()
+            https_base = "https://127.0.0.1:%d" % secure.server_address[1]
+        elif os.environ.get("HTTPCLIENT_REQUIRE_TLS_TEST"):
+            sys.stderr.write("no certificate: openssl is needed for the HTTPS tests\n")
+            return 1
+        return subprocess.run([sys.argv[1], base, https_base], timeout=50).returncode
     finally:
         server.shutdown()
+        if secure:
+            secure.shutdown()
+        shutil.rmtree(directory, ignore_errors=True)
 
 
 if __name__ == "__main__":

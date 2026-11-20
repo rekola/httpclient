@@ -5,6 +5,7 @@
 #include <BasicAuth.h>
 #include <BearerAuth.h>
 #include <FNV.h>
+#include <HTTPClient.h>
 #include <HTTPRequest.h>
 #include <HTTPResponse.h>
 #include <SHA1.h>
@@ -153,6 +154,43 @@ static void testRequest() {
   CHECK(req.getContent() == "body" && req.getURI() == "http://example.com/" && req.getMethod() == Method::POST);
 }
 
+// The client's choice about certificates reaches every request its Get and Post overloads build, and is off by default.
+namespace {
+struct CapturingClient : HTTPClient {
+  CapturingClient() : HTTPClient("capture", false, false) {}
+  HTTPRequest last{Method::GET, ""};
+  void request(const HTTPRequest & req, const Authorization &, HTTPClientInterface &) override { last = req; }
+  void clearCookies() override {}
+};
+}  // namespace
+
+static void testCertificateOption() {
+  HTTPRequest fresh(Method::GET, "https://example.com/");
+  CHECK(!fresh.getIgnoreCertificateErrors());
+  fresh.setIgnoreCertificateErrors(true);
+  CHECK(fresh.getIgnoreCertificateErrors());
+
+  CapturingClient c;
+  CHECK(!c.getIgnoreCertificateErrors());
+  HTTPResponse sink;
+  BasicAuth auth("u", "p");
+  for (bool ignore : {false, true}) {
+    c.setIgnoreCertificateErrors(ignore);
+    c.Get("https://x/");                                          CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Get("https://x/", false);                                   CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Get("https://x/", auth);                                    CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Get("https://x/", std::string_view("a=1"));                 CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Get("https://x/", "a=1");                                   CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Get("https://x/", std::string_view("a=1"), auth);           CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Get("https://x/", sink);                                    CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Get("https://x/", std::string_view("a=1"), sink);           CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Get("https://x/", std::string_view("a=1"), auth, sink);     CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Post("https://x/", "a=1");                                  CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Post("https://x/", "a=1", auth);                            CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+    c.Post("https://x/", "a=1", auth, sink);                      CHECK(c.last.getIgnoreCertificateErrors() == ignore);
+  }
+}
+
 // The raw header block a backend hands over: the status, the headers and the redirect.
 static void testResponseHeaders() {
   HTTPResponse r;
@@ -187,6 +225,7 @@ int main() {
   testReducedDomain();
   testAuthorization();
   testRequest();
+  testCertificateOption();
   testResponseHeaders();
   std::printf("%d checks, %d failed\n", checks, failures);
   return failures == 0 ? 0 : 1;

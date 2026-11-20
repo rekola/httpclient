@@ -40,11 +40,12 @@ struct Collector : HTTPClientInterface {
 static bool contains(const std::string & s, const std::string & part) { return s.find(part) != std::string::npos; }
 
 int main(int argc, char ** argv) {
-  if (argc != 2) {
-    std::fprintf(stderr, "usage: %s BASE_URL\n", argv[0]);
+  if (argc < 2 || argc > 3) {
+    std::fprintf(stderr, "usage: %s BASE_URL [HTTPS_BASE_URL]\n", argv[0]);
     return 2;
   }
   const std::string base = argv[1];
+  const std::string https_base = argc == 3 ? argv[2] : "";  // a server whose certificate nobody trusts
 
 #if defined(HTTPCLIENT_SMOKE_WINHTTP)
   WinHTTPClientFactory factory;
@@ -122,6 +123,32 @@ int main(int argc, char ** argv) {
   }
   {  // and the client still works afterwards
     CHECK(client->Get(base + "/hello").getContent() == "hello");
+  }
+
+  if (https_base.empty()) {
+    std::printf("no HTTPS server: the certificate tests are skipped\n");
+  } else {
+    // An untrusted certificate fails the request unless the client, or the request, says to accept it.
+    CHECK(client->Get(https_base + "/hello").getResultCode() == 0);
+    CHECK(client->Get(https_base + "/hello").isError());
+
+    client->setIgnoreCertificateErrors(true);
+    HTTPResponse accepted = client->Get(https_base + "/hello");
+    CHECK(accepted.getResultCode() == 200 && accepted.getContent() == "hello");
+    HTTPResponse posted = client->Post(https_base + "/echo", "a=1");
+    CHECK(posted.getResultCode() == 200 && posted.getContent() == "a=1");
+
+    // The choice is made for each request: turned off again, the same client refuses again.
+    client->setIgnoreCertificateErrors(false);
+    CHECK(client->Get(https_base + "/hello").getResultCode() == 0);
+
+    // Or for one request, whatever the client's choice.
+    HTTPRequest req(Method::GET, https_base + "/hello");
+    req.setIgnoreCertificateErrors(true);
+    HTTPResponse one;
+    client->request(req, client->noAuth, one);
+    CHECK(one.getResultCode() == 200 && one.getContent() == "hello");
+    CHECK(client->Get(https_base + "/hello").getResultCode() == 0);
   }
 
   std::printf("%d checks, %d failed\n", checks, failures);

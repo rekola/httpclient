@@ -38,6 +38,7 @@ namespace httpclient {
     int getReadTimeout() const { return read_timeout_; }
     int getConnectionTimeout() const { return connection_timeout_; }
     bool useHTTP2() const { return use_http2_; }
+    bool getIgnoreCertificateErrors() const { return ignore_certificate_errors_; }
     const std::map<std::string, std::string> & getHeaders() const { return headers_; }
   
     void setContent(std::string content) { content_ = std::move(content); }
@@ -48,6 +49,9 @@ namespace httpclient {
     void setReadTimeout(int t) { read_timeout_ = t; }
     void setConnectionTimeout(int t) { connection_timeout_ = t; }
     void setUseHTTP2(bool t) { use_http2_ = t; }
+    // Accept an HTTPS server whatever its certificate (unknown authority, expired, wrong host name). Off by default:
+    // then a certificate that does not check out fails the request.
+    void setIgnoreCertificateErrors(bool t) { ignore_certificate_errors_ = t; }
 
     void setHeaders(std::map<std::string, std::string> headers) { headers_ = std::move(headers); }
     void addHeader(std::string name, std::string value) {
@@ -63,6 +67,7 @@ namespace httpclient {
     bool follow_location_ = true;
     int connect_timeout_ = 0, read_timeout_ = 0, connection_timeout_ = 0;
     bool use_http2_ = false;
+    bool ignore_certificate_errors_ = false;
   };
 };
 

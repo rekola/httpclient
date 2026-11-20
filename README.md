@@ -80,6 +80,27 @@ client->Post(url, "a=1&b=2");                       // a form (x-www-form-urlenc
 client->Post(url, body, httpclient::BasicAuth("user", "password"));
 ```
 
+### Certificates
+
+HTTPS certificates are checked: a server whose certificate does not check out
+(unknown authority, expired, wrong host name) fails the request, with a result
+code of 0. To accept any certificate, for example to read from servers with
+self-signed ones:
+
+```cpp
+client->setIgnoreCertificateErrors(true);   // every request this client makes
+
+httpclient::HTTPRequest request(httpclient::Method::GET, "https://self-signed.example/");
+request.setIgnoreCertificateErrors(true);   // one request
+client->request(request, client->noAuth, response);
+```
+
+This makes the connection readable and alterable by anyone on the path, so use it
+for data you could fetch over plain HTTP. The libcurl, WinHTTP and CFNetwork
+backends support it; the Android and NSURLRequest ones always check. (Before
+this was an option, the libcurl and CFNetwork backends never checked
+certificates, and the WinHTTP one dropped the check after a failed handshake.)
+
 To read a body as it arrives, or to stop early, give the call a callback instead
 of taking an `HTTPResponse`; returning `false` from `handleChunk` ends the
 transfer:
@@ -117,6 +138,7 @@ What it needs:
 | utf8proc or libunistring | `URI` (it folds the case of host names) | `libutf8proc-dev` or `libunistring-dev` | `utf8proc` or `libunistring` | `mingw-w64-ucrt-x86_64-libunistring` |
 | pkg-config | finding utf8proc (libunistring is found without it) | `pkg-config` | `pkg-config` | `mingw-w64-ucrt-x86_64-pkgconf` |
 | Python 3 | the loopback test (skipped without it) | `python3` | `python3` | `mingw-w64-ucrt-x86_64-python` |
+| openssl (the command) | the HTTPS cases of the loopback test, which make a self-signed certificate (skipped without it) | `openssl` | in the system | `mingw-w64-ucrt-x86_64-openssl` |
 
 `HTTPCLIENT_UNICODE` picks the library: `AUTO` (the default) takes a system
 utf8proc, else a system libunistring, else fetches and builds utf8proc
@@ -162,7 +184,8 @@ Either way the headers are included by their bare names (`#include
 - `httpclient_smoke`: the backend against a small server on this machine
   (`tests/run_smoke.py`): GET, POST, status codes, redirects, headers and
   authorization, a body streamed to a callback and refused part-way, a refused
-  connection, and a read timeout.
+  connection, a read timeout, and an HTTPS server with a self-signed
+  certificate (refused unless told to accept it).
 
 CI builds and tests on Linux (x86-64 and ARM64), macOS and Windows, and builds
 a small project against the installed library.
