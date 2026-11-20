@@ -35,3 +35,7 @@
 /.vs/httpclient/v17
 *.json
 /.vs
+
+# CMake
+/build/
+/build-*/

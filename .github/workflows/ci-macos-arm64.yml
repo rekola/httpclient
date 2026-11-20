@@ -1,0 +1,40 @@
+name: macOS ARM64
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Apple clang, the SDK's libcurl and Homebrew's utf8proc.
+  build-and-test:
+    runs-on: macos-15
+
+    # Clang does not search /opt/homebrew on its own.
+    env:
+      CPATH: /opt/homebrew/include
+      LIBRARY_PATH: /opt/homebrew/lib
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: brew install cmake ninja pkg-config utf8proc
+
+      - name: Configure
+        run: cmake -G Ninja -B build
+
+      # -k 0: report every compile error in one run, not just the first.
+      - name: Build
+        run: cmake --build build -- -k 0
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Install and use
+        run: |
+          cmake --install build --prefix "$PWD/prefix"
+          cmake -G Ninja -S tests/consumer -B build-consumer -DCMAKE_PREFIX_PATH="$PWD/prefix"
+          cmake --build build-consumer
+          ctest --test-dir build-consumer --output-on-failure
