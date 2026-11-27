@@ -350,6 +350,10 @@ class WinHTTPClient : public HTTPClient {
 	    // Check for available data to get data size in bytes
 	    DWORD dwSize = 0;
 	    if (!WinHttpQueryDataAvailable(hRequest, &dwSize)) {
+	      // The body cannot be read to its end (a connection lost part-way, or a compressed body that does not
+	      // decode): a failed request, not a short body that looks complete.
+	      callback.handleErrorText("Failed to read response: " + to_string(GetLastError()));
+	      callback.handleResultCode(0);
 	      break;
 	    }
 	    if (!dwSize) {
@@ -367,6 +371,7 @@ class WinHTTPClient : public HTTPClient {
 		break;
 	      }
 	    } else {
+	      callback.handleErrorText("Failed to read response: " + to_string(GetLastError()));
 	      callback.handleResultCode(500);
 	      break;
 	    }
