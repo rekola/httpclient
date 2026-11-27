@@ -45,7 +45,7 @@ namespace httpclient {
 	} else {
 	  int pos1 = 0;
 	  for ( ; pos1 < static_cast<int>(input.size()) && input[pos1] != ':'; pos1++) { }
-	  int pos2 = input[pos1] == ':' ? pos1 + 1 : pos1;
+	  int pos2 = pos1 < static_cast<int>(input.size()) && input[pos1] == ':' ? pos1 + 1 : pos1;
 	  for (; pos2 < static_cast<int>(input.size()) && isspace(input[pos2]); pos2++) { }
 	  int pos3 = input.size();
 	  for (; pos3 > 0 && isspace(input[pos3 - 1]); pos3--) { }
