@@ -184,6 +184,17 @@ int main(int argc, char ** argv) {
   }
   {  // gzip and zlib-wrapped deflate, whole and streamed: handleChunk only ever sees decoded bytes
     for (const char * path : {"/gzip", "/deflate"}) {
+#if defined(HTTPCLIENT_SMOKE_WINHTTP)
+      if (std::string(path) == "/deflate") {
+        // Observed on Windows CI: WinHTTP decodes the bare RFC 1951 stream (below) but not the zlib-wrapped form
+        // RFC 9110 means by "deflate". Recorded as it is; it must at least not be a complete-looking wrong body.
+        Recorder rec;
+        client->Get(base + path, rec);
+        std::printf("zlib deflate: code %d, %zu bytes, error '%s'\n", rec.code, rec.body.size(), rec.error.c_str());
+        CHECK(rec.body == text || rec.code != 200 || !rec.error.empty() || rec.body.empty());
+        continue;
+      }
+#endif
       HTTPResponse r = client->Get(base + path);
       CHECK(r.getResultCode() == 200 && r.isSuccess() && r.getErrorText().empty());
       CHECK(r.getContent() == text);
@@ -235,11 +246,9 @@ int main(int argc, char ** argv) {
     HTTPResponse r = client->Get(base + "/gzip-corrupt");
     std::printf("corrupt gzip: code %d, %zu bytes, error '%s'\n", rec.code, rec.body.size(), rec.error.c_str());
 #if defined(HTTPCLIENT_SMOKE_WINHTTP)
-    // Not observed on a real Windows machine when this was written. WinHTTPClient::request ends its read loop on a
-    // failed WinHttpQueryDataAvailable without an error text or a failure code, so this may be a real bug there:
-    // a 200 with a short body. The check is the weakest that still says "not complete-looking"; once CI shows what
-    // WinHTTP does, tighten it to rec.code == 0 and an error text, and fix the loop if it does not.
-    CHECK(rec.code != 200 || rec.body.size() < 200000 || !rec.error.empty());
+    // Observed on Windows CI before WinHTTPClient reported it: code 200, 0 bytes, no error text, a failure that
+    // looked like an empty success. Now the failed read gives an error text and result code 0.
+    CHECK(!rec.error.empty());
     (void)r;
 #else
     // libcurl: CURLE_BAD_CONTENT_ENCODING, reported through handleErrorText; the result code stays the 200 of the
@@ -261,6 +270,8 @@ int main(int argc, char ** argv) {
     CHECK(!rec.error.empty());
     CHECK(rec.body.size() == 100000);
 #endif
+    // WinHTTP, observed on Windows CI: all 100000 bytes and no error, so it does not check the gzip trailer's CRC.
+    // Not asserted: that is the platform's decoder, which this library cannot change.
   }
   {  // not encoded, so not decoded: bytes that start like a zip arrive unchanged
     const std::string bin = binary_body();

@@ -181,7 +181,10 @@ Responses are decompressed transparently: the body that reaches `handleChunk`
 
 - libcurl asks for `gzip, deflate` and decodes both (`deflate` as the zlib
   format, and also the bare stream some old servers send).
-- WinHTTP has decompression switched on for its session (gzip and deflate).
+- WinHTTP has decompression switched on for its session. It decodes gzip and
+  a bare deflate stream, but (as seen on Windows CI) not the zlib-wrapped
+  deflate that RFC 9110 means, so avoid servers that rely on it there. It does
+  not check gzip's trailing CRC.
 - The Android and Apple backends use the platform's own stack and are not
   covered by these tests.
 
