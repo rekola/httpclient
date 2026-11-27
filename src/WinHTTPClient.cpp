@@ -156,33 +156,10 @@ class WinHTTPClient : public HTTPClient {
    WinHTTPClient(std::string user_agent, bool enable_cookies = true, bool enable_keepalive = true)
      : HTTPClient(std::move(user_agent), enable_cookies, enable_keepalive)
    {
-     auto ua_text = from_utf8(getUserAgent());
-     // Use WinHttpOpen to obtain a session handle.
-     session_ = WinHttpOpen(ua_text.c_str(),
-       WINHTTP_ACCESS_TYPE_NO_PROXY,
-       WINHTTP_NO_PROXY_NAME,
-       WINHTTP_NO_PROXY_BYPASS, 0);
-     
-     DWORD decompression = WINHTTP_DECOMPRESSION_FLAG_ALL;
-     WinHttpSetOption(session_, WINHTTP_OPTION_DECOMPRESSION, &decompression, sizeof(decompression));
-
-#if 0
-     DWORD protocols = WINHTTP_PROTOCOL_FLAG_HTTP2;
-     WinHttpSetOption(session_, WINHTTP_OPTION_ENABLE_HTTP_PROTOCOL, &protocols, sizeof(protocols));
-     DWORD secure_protocols = WINHTTP_FLAG_SECURE_PROTOCOL_ALL | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1;
-     if (IsWindows10OrGreater() || 1) {
-       secure_protocols |= WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2;
-     }
-     if (!WinHttpSetOption(session_, WINHTTP_OPTION_SECURE_PROTOCOLS, &secure_protocols, sizeof(secure_protocols))) {
-       string tmp = "failed to set secure protocols: " + to_string(GetLastError()) + "\r\n";
-       OutputDebugStringA(tmp.c_str());
-     }
-#endif
-
-#ifdef WINHTTP_OPTION_TLS_PROTOCOL_INSECURE_FALLBACK
-     DWORD fallback = 1;
-     WinHttpSetOption(session_, WINHTTP_OPTION_TLS_PROTOCOL_INSECURE_FALLBACK, &fallback, sizeof(fallback));     
-#endif
+     session_ = openSession();
+     // Requests that accept certificate errors get a session of their own, so a connection (or TLS session) set up
+     // without certificate checks is never reused by a request that wants them.
+     insecure_session_ = openSession();
    }
 
   WinHTTPClient(const WinHTTPClient & other) = delete;
@@ -194,10 +171,14 @@ class WinHTTPClient : public HTTPClient {
     if (session_) {
       WinHttpCloseHandle(session_);
     }
+    if (insecure_session_) {
+      WinHttpCloseHandle(insecure_session_);
+    }
   }
 
   void request(const HTTPRequest & req, const Authorization & auth, HTTPClientInterface & callback) override {
-    if (!session_) {
+    const bool ignore_certificate_errors = req.getIgnoreCertificateErrors();
+    if (!session_ || !insecure_session_) {
       callback.handleErrorText("Not initialized");
       return;
     }
@@ -225,7 +206,7 @@ class WinHTTPClient : public HTTPClient {
       return;
     }       
 
-    auto hConnect = WinHttpConnect(session_, target_host.c_str(), target_port, 0);
+    auto hConnect = WinHttpConnect(is_secure && ignore_certificate_errors ? insecure_session_ : session_, target_host.c_str(), target_port, 0);
     if (!hConnect) {
       callback.handleErrorText("Could not create connection handle: " + to_string(GetLastError()));
     } else {
@@ -268,7 +249,8 @@ class WinHTTPClient : public HTTPClient {
 
 	DWORD disabled_features = 0;
 	if (!req.getFollowLocation()) disabled_features |= WINHTTP_DISABLE_REDIRECTS;
-	if (!enable_keepalive) disabled_features |= WINHTTP_DISABLE_KEEP_ALIVE;
+	// A connection that skipped the certificate checks is not kept for later requests either.
+	if (!enable_keepalive || (is_secure && ignore_certificate_errors)) disabled_features |= WINHTTP_DISABLE_KEEP_ALIVE;
 	if (!enable_cookies) disabled_features |= WINHTTP_DISABLE_COOKIES;
 	if (!WinHttpSetOption(hRequest, WINHTTP_OPTION_DISABLE_FEATURE, &disabled_features, sizeof(disabled_features))) {
 	  OutputDebugStringA("Could not set options");
@@ -286,14 +268,10 @@ class WinHTTPClient : public HTTPClient {
 	  combined_headers["Content-Type"] = req.getContentType();
 	}
 
-	auto basic_auth = dynamic_cast<const BasicAuth *>(&auth);
-	if (basic_auth) {
-	  // FIXME: implement
-	} else {
-	  string auth_header = auth.createHeader();
-	  if (!auth_header.empty()) {
-	    combined_headers[auth.getHeaderName()] = auth_header;
-	  }
+	// Sent with the first request (as libcurl does for Basic), not only after a 401 challenge.
+	string auth_header = auth.createHeader();
+	if (!auth_header.empty()) {
+	  combined_headers[auth.getHeaderName()] = auth_header;
 	}
 
 	for (auto & [ name, value ] : combined_headers) {
@@ -405,7 +383,39 @@ class WinHTTPClient : public HTTPClient {
   }
   
 protected:
-  HINTERNET session_;
+  HINTERNET openSession() {
+    auto ua_text = from_utf8(getUserAgent());
+    // Use WinHttpOpen to obtain a session handle.
+    auto session = WinHttpOpen(ua_text.c_str(),
+      WINHTTP_ACCESS_TYPE_NO_PROXY,
+      WINHTTP_NO_PROXY_NAME,
+      WINHTTP_NO_PROXY_BYPASS, 0);
+    
+    DWORD decompression = WINHTTP_DECOMPRESSION_FLAG_ALL;
+    WinHttpSetOption(session, WINHTTP_OPTION_DECOMPRESSION, &decompression, sizeof(decompression));
+
+#if 0
+    DWORD protocols = WINHTTP_PROTOCOL_FLAG_HTTP2;
+    WinHttpSetOption(session, WINHTTP_OPTION_ENABLE_HTTP_PROTOCOL, &protocols, sizeof(protocols));
+    DWORD secure_protocols = WINHTTP_FLAG_SECURE_PROTOCOL_ALL | WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_1;
+    if (IsWindows10OrGreater() || 1) {
+      secure_protocols |= WINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2;
+    }
+    if (!WinHttpSetOption(session, WINHTTP_OPTION_SECURE_PROTOCOLS, &secure_protocols, sizeof(secure_protocols))) {
+      string tmp = "failed to set secure protocols: " + to_string(GetLastError()) + "\r\n";
+      OutputDebugStringA(tmp.c_str());
+    }
+#endif
+
+#ifdef WINHTTP_OPTION_TLS_PROTOCOL_INSECURE_FALLBACK
+    DWORD fallback = 1;
+    WinHttpSetOption(session, WINHTTP_OPTION_TLS_PROTOCOL_INSECURE_FALLBACK, &fallback, sizeof(fallback));     
+#endif
+    return session;
+  }
+
+  HINTERNET session_ = nullptr;
+  HINTERNET insecure_session_ = nullptr;
 };
   
 
