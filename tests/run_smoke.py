@@ -8,13 +8,66 @@ its exit status is this script's.
 """
 import os
 import shutil
+import gzip
 import ssl
 import subprocess
 import sys
 import tempfile
+import zlib
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+
+# Bodies for the decompression tests. smoke.cpp makes the same bytes with the same rules (keep the two in step).
+TEXT_BODY = b"The quick brown fox jumps over the lazy dog. " * 200  # 9000 bytes
+
+
+def pseudo_random(n, seed=20240607):
+    """n bytes of a 32-bit linear congruential generator (high byte of each state): reproducible in C++ too,
+    and nearly incompressible, so the compressed body is about as large as the plain one."""
+    out = bytearray()
+    state = seed
+    for _ in range(n):
+        state = (state * 1664525 + 1013904223) & 0xFFFFFFFF
+        out.append(state >> 24)
+    return bytes(out)
+
+
+BIG_BODY = pseudo_random(400000)
+BINARY_BODY = b"PK\x03\x04" + bytes(range(256)) * 20  # looks like a zip, was never encoded
+
+
+def accepts(header, coding):
+    """Whether an Accept-Encoding header value allows the coding (a q=0 forbids it)."""
+    for part in (header or "").split(","):
+        name, _, params = part.strip().partition(";")
+        if name.strip().lower() == coding:
+            return params.replace(" ", "").lower() not in ("q=0", "q=0.0", "q=0.00", "q=0.000")
+    return False
+
+
+def damaged(data, start):
+    """The gzip stream with 64 bytes from start on flipped; it must really fail to decode."""
+    data = bytearray(data)
+    for i in range(start, start + 64):
+        data[i] ^= 0xFF
+    try:
+        gzip.decompress(bytes(data))
+    except Exception:
+        return bytes(data)
+    raise AssertionError("the damaged gzip body is still valid")
+
+
+# Compressible text with the damage at the start of the deflate data, which breaks the stream itself (the decoder
+# reports a format error, not just a wrong checksum). CORRUPT_PLAIN_SIZE is the length of the whole body before damage.
+CORRUPT_PLAIN_SIZE = 300000
+_text = b"".join(b"line %d of the corrupt body\n" % i for i in range(20000))[:CORRUPT_PLAIN_SIZE]
+_gz = gzip.compress(_text, 6, mtime=0)
+CORRUPT_GZIP = damaged(_gz, 12)  # in the first block's code-length table
+# Incompressible data is stored as is, so the same damage leaves a decodable stream and only the CRC at the end fails.
+_gz = gzip.compress(BIG_BODY[:100000], 6, mtime=0)
+CORRUPT_CRC_GZIP = damaged(_gz, len(_gz) // 2)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -52,6 +105,30 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(200, "".join("%s: %s\n" % (k.lower(), v) for k, v in self.headers.items()))
         elif path == "/large":
             self.reply(200, b"x" * 300000)
+        elif path == "/accept-encoding":
+            # The Accept-Encoding the client sent ("" if none), plain.
+            self.reply(200, self.headers.get("Accept-Encoding", ""))
+        elif path == "/gzip":
+            # gzip only if the request allows it; plain otherwise.
+            if accepts(self.headers.get("Accept-Encoding"), "gzip"):
+                self.reply(200, gzip.compress(TEXT_BODY, 6, mtime=0), {"Content-Encoding": "gzip"})
+            else:
+                self.reply(200, TEXT_BODY)
+        elif path == "/deflate":
+            # RFC 9110 "deflate": the zlib format (RFC 1950).
+            self.reply(200, zlib.compress(TEXT_BODY), {"Content-Encoding": "deflate"})
+        elif path == "/raw-deflate":
+            # What some old servers send as "deflate": a bare RFC 1951 stream without the zlib wrapper.
+            c = zlib.compressobj(6, zlib.DEFLATED, -15)
+            self.reply(200, c.compress(TEXT_BODY) + c.flush(), {"Content-Encoding": "deflate"})
+        elif path == "/gzip-large":
+            self.reply(200, gzip.compress(BIG_BODY, 6, mtime=0), {"Content-Encoding": "gzip"})
+        elif path == "/gzip-corrupt":
+            self.reply(200, CORRUPT_GZIP, {"Content-Encoding": "gzip"})
+        elif path == "/gzip-corrupt-crc":
+            self.reply(200, CORRUPT_CRC_GZIP, {"Content-Encoding": "gzip"})
+        elif path == "/binary":
+            self.reply(200, BINARY_BODY, content_type="application/octet-stream")
         elif path == "/slow":
             time.sleep(4)
             self.reply(200, "late")

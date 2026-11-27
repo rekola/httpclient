@@ -174,6 +174,26 @@ target_link_libraries(my_program PRIVATE httpclient::httpclient)
 Either way the headers are included by their bare names (`#include
 <HTTPClient.h>`, `<CurlClient.h>`).
 
+### Compressed responses
+
+Responses are decompressed transparently: the body that reaches `handleChunk`
+(and `HTTPResponse::getContent()`) is the decoded one.
+
+- libcurl asks for `gzip, deflate` and decodes both (`deflate` as the zlib
+  format, and also the bare stream some old servers send).
+- WinHTTP has decompression switched on for its session (gzip and deflate).
+- The Android and Apple backends use the platform's own stack and are not
+  covered by these tests.
+
+The backend sends `Accept-Encoding` itself, so a caller should not set it: it
+would replace or duplicate the library's own, and a coding the library cannot
+decode would arrive undecoded. A body that cannot be decoded is reported through
+`handleErrorText`; with libcurl the result code is still the 200 of the headers
+and bytes decoded before the damage was found have already been delivered, so
+check the error text, not only the code. The headers are what the backend
+passes on: libcurl gives `Content-Encoding` and the encoded `Content-Length`
+unchanged, which is not the length of the body you receive.
+
 ## Tests
 
 `ctest` runs two programs:
@@ -184,7 +204,8 @@ Either way the headers are included by their bare names (`#include
 - `httpclient_smoke`: the backend against a small server on this machine
   (`tests/run_smoke.py`): GET, POST, status codes, redirects, headers and
   authorization, a body streamed to a callback and refused part-way, a refused
-  connection, a read timeout, and an HTTPS server with a self-signed
+  connection, a read timeout, compressed responses (gzip, deflate, a large one,
+  a corrupt one, binary data that must stay as it is), and an HTTPS server with a self-signed
   certificate (refused unless told to accept it).
 
 CI builds and tests on Linux (x86-64 and ARM64), macOS and Windows, and builds
